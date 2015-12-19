@@ -25,7 +25,8 @@ type exp =
 	| Div of exp * exp;;
 
 (* Ambiente / Binding *)
-let env = fun (var : ide) -> raise EmptyEnv;;
+type environment = ide -> eval;;
+let env:environment = fun var -> raise EmptyEnv;;
 
 let bind var espr oldenv = fun (src : ide) -> if src = var then espr else oldenv src;; (* Estensione di ambiente *)
 
