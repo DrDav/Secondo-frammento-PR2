@@ -3,14 +3,14 @@ exception EmptyEnv;; (* Ambiente vuoto - quello di default *)
 
 (* Tipi per la sintassi astratta *)
 type ide = string;;
-type etuple = Void | Add of 'a * etuple;;
+type 'a etuple = Void | Add of ('a * etuple);;
 
 (* Espressioni *)
 type exp = 
 	  Var of ide
 	| Eint of int
 	| Ebool of bool
-	| Etuple of etuple
+	| Etuple of int etuple
 	| Plus of exp * exp
 	| Diff of exp * exp
 	| Mul of exp * exp
@@ -36,7 +36,7 @@ type eval =
 	| NaN
 	| Bool of bool
 	| Funval of efun
-	| Tuple of etuple
+	| Tuple of int etuple
 	| Unbound
 and efun = exp * environment
 and environment = ide -> eval;;
