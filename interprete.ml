@@ -3,6 +3,7 @@ exception EmptyEnv;; (* Ambiente vuoto - quello di default *)
 
 (* Tipi per la sintassi astratta *)
 type ide = string;;
+type etuple = Void | Add of 'a * etuple;;
 
 (* Espressioni *)
 type exp = 
@@ -38,8 +39,7 @@ type eval =
 	| Tuple of etuple
 	| Unbound
 and efun = exp * environment
-and environment = ide -> eval
-and etuple = Void | Add of eval * etuple;;
+and environment = ide -> eval;;
 
 (* Ambiente / Binding *)
 let env:environment = fun var -> raise EmptyEnv;;
@@ -87,10 +87,11 @@ let rec sem (espr, amb) = match espr with
 		  Funval(Fun(par_form, body), static_env) -> sem(body, bind(par_form, sem(par_att, amb), static_env))
 		| _                                       -> failwith "Not a function" )
 	| IsEmpty(t)                 -> ( match t with 
-		Etuple(tupla) -> ( match tupla with
+		  Etuple(tupla) -> ( match tupla with
 			  Void -> Bool(true)
 			| _    -> Bool(false) )
+		| _             -> failwith "Can't apply IsEmpty on a non-tuple value."
 		)
-	| 
+	
 	;;
 	
