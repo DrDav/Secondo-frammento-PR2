@@ -39,26 +39,31 @@ let op (operation, x, y) = match (operation, x, y) with
 	| ("cmp0", Int(num), _)        -> if (num = 0) then Bool(true) else Bool(false)
 	| ("and", Bool(a), Bool(b))    -> if (a = false) then Bool(false) else Bool(b) (* Greedy *)
 	| ("or", Bool(a), Bool(b))     -> if (a = true) then Bool(true) else Bool(b) (* Greedy *)
+	| ("equ", Int(a), Int(b))      -> if (a = b) then Bool(true) else Bool(false) 
+	| ("not", Bool(a), _)          -> if (a = true) then Bool(false) else Bool(true)
 	| _                            -> failwith "Unknown Primitive / Type Error";;
-	
-let rec greedy_logic_op (operation, x, y) = match (operation, x, y) with
-	  ("and", Bool(a), Bool(b)) -> if(a = false) then Bool(false) else greedy_logic
 
 (* Semantica Operazionale / Eseguibile *)
 let rec sem (espr, amb) = match espr with
+	(* Tipi primitivi + valori nell'ambiente *)
 	  Var(var) -> amb var
 	| Eint(x) -> Int x
 	| Ebool(x) -> Bool x
-	| Plus(add1, add2) -> op( "plus", sem (add1, amb), sem(add2, amb) )
-	| Diff(min1, min2) -> op( "diff", sem (min1, amb), sem(min2, amb) )
-	| Mul(fat1, fat2)  -> op( "mul", sem (fat1, amb), sem(fat2, amb) )
-	| Div(add1, add2)  -> op( "div", sem (div1, amb), sem(div2, amb) )
-	| Minus(num)       -> op( "minus", sem(num, amb), Unbound ) (* Uso speciale della costante Unbound per il terzo parametro *)
-	| IsZero(num)      -> op( "cmp0", sem(num, amb), Unbound )
-	| And(esp1, esp2)  -> op( "and", sem(esp1, amb), sem(esp2, amb) )
-	| Or(esp1, esp2)   -> op( "or", sem(esp1, amb), sem(esp2, amb) )
-	| Equ(esp1, esp2)  -> op( "equ", sem(esp1, amb), sem(esp2, amb) )
-	| LTE(esp1, esp2)  -> op( "lessthaneq", sem(esp1, amb), sem(esp2, amb) )
-	| GTE(esp1, esp2)  -> 
+	(* Operazioni Primitive *)
+	| Plus(add1, add2)           -> op( "plus", sem (add1, amb), sem(add2, amb) )
+	| Diff(min1, min2)           -> op( "diff", sem (min1, amb), sem(min2, amb) )
+	| Mul(fat1, fat2)            -> op( "mul", sem (fat1, amb), sem(fat2, amb) )
+	| Div(add1, add2)            -> op( "div", sem (div1, amb), sem(div2, amb) )
+	| Minus(num)                 -> op( "minus", sem(num, amb), Unbound ) (* Uso speciale della costante Unbound per il terzo parametro *)
+	| IsZero(num)                -> op( "cmp0", sem(num, amb), Unbound )
+	| And(esp1, esp2)            -> op( "and", sem(esp1, amb), sem(esp2, amb) )
+	| Or(esp1, esp2)             -> op( "or", sem(esp1, amb), sem(esp2, amb) )
+	| Equ(esp1, esp2)            -> op( "equ", sem(esp1, amb), sem(esp2, amb) )
+	| Not(esp)                   -> op( "not", sem(esp, amb), Unbound )
+	| ITE(guardia, ramoT, ramoE) -> ( match sem(guardia, amb) with
+		Bool(g) -> if (g = true) then sem(ramoT, amb) else sem(ramoE, amb)
+		_       -> failwith "Nonboolean guard" )
+	(* Operazioni Complesse *)
+	| Let(var, value, body)      -> sem(body, bind(var, sem(value, amb), amb))
 	;;
 	
