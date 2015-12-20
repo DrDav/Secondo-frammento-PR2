@@ -27,20 +27,17 @@ type exp =
 	| Let of ide * exp * exp
 	| Fun of ide * exp
 	| Appl of exp * exp
-	| IsEmpty of tup
-	;;
-	
+	| IsEmpty of eval
 (* Tipi Esprimibili *)
-type eval = 
+and eval = 
 	  Int of int
 	| NaN
 	| Bool of bool
 	| Funval of efun
 	| Tuple of eval tuple
 	| Unbound
-and efun = exp * environment;;
-
-type environment = ide -> eval;;
+and efun = exp * environment
+and environment = ide -> eval;;
 
 (* Ambiente / Binding *)
 let env:environment = fun var -> raise EmptyEnv;;
@@ -59,6 +56,8 @@ let op (operation, x, y) = match (operation, x, y) with
 	| ("or", Bool(a), Bool(b))     -> if (a = true) then Bool(true) else Bool(b) (* Greedy *)
 	| ("equ", Int(a), Int(b))      -> if (a = b) then Bool(true) else Bool(false) 
 	| ("not", Bool(a), _)          -> if (a = true) then Bool(false) else Bool(true)
+	| ("lte", Int(n), Int(m))      -> if (n <= m) then Bool(true) else Bool(false)
+	| ("gte", Int(n), Int(m))      -> if (n >= m) then Bool(true) else Bool(false)
 	| _                            -> failwith "Unknown Primitive / Type Error";;
 
 (* Semantica Operazionale / Eseguibile *)
@@ -79,6 +78,8 @@ let rec sem (espr, amb) = match espr with
 	| Or(esp1, esp2)             -> op( "or", sem(esp1, amb), sem(esp2, amb) )
 	| Equ(esp1, esp2)            -> op( "equ", sem(esp1, amb), sem(esp2, amb) )
 	| Not(esp)                   -> op( "not", sem(esp, amb), Unbound )
+	| LTE(num1, num2)            -> op( "lte", sem(num1, amb), sem(num2, amb) )
+	| GTE(num1, num2)            -> op( "gte", sem(num1, amb), sem(num2, amb) )
 	| ITE(guardia, ramoT, ramoE) -> ( match sem(guardia, amb) with
 		  Bool(g) -> if (g = true) then sem(ramoT, amb) else sem(ramoE, amb)
 		| _       -> failwith "Non-boolean guard" )
