@@ -28,6 +28,7 @@ type exp =
 	| Fun of ide * exp
 	| Appl of exp * exp
 	| IsEmpty of eval
+	| Slice of int * int * eval
 (* Tipi Esprimibili *)
 and eval = 
 	  Int of int
@@ -59,6 +60,11 @@ let op (operation, x, y) = match (operation, x, y) with
 	| ("lte", Int(n), Int(m))      -> if (n <= m) then Bool(true) else Bool(false)
 	| ("gte", Int(n), Int(m))      -> if (n >= m) then Bool(true) else Bool(false)
 	| _                            -> failwith "Unknown Primitive / Type Error";;
+
+let rec slice start stop tup = match tup with
+	  Void -> Void
+	| Add(curr, tail) when start < stop -> Add(curr, slice (start+1) stop tail)
+	| _                                 -> Void;;
 
 (* Semantica Operazionale / Eseguibile *)
 let rec sem (espr, amb) = match espr with
@@ -94,6 +100,6 @@ let rec sem (espr, amb) = match espr with
 			| _    -> Bool(false) )
 		| _             -> failwith "Can't apply IsEmpty on a non-tuple value."
 		)
-	
+	| Slice(start, stop, t)      -> slice start stop t
 	;;
 	
