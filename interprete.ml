@@ -1,5 +1,6 @@
 (* Eccezioni *)
 exception EmptyEnv;; (* Ambiente vuoto - quello di default *)
+exception OutOfBound;; (* Accesso fuori dalla tupla *)
 
 (* Tipi per la sintassi astratta *)
 type ide = string;;
@@ -38,6 +39,8 @@ type exp =
 	| Appl of exp * exp
 	| IsEmpty of exp
 	| Slice of int * int * exp
+	| In of exp * exp
+	| Access of int * exp
 	;;
 	
 type fval = Funval of efun
@@ -50,7 +53,7 @@ and
 (* Ambiente / Binding *)
 let env:environment = fun var -> raise EmptyEnv;;
 
-let bind (var, espr, oldenv) = fun (src : ide) -> if src = var then espr else oldenv src;; (* Estensione di ambiente *)
+let bind (var, espr, (oldenv:environment)) = fun (src : ide) -> if src = var then espr else oldenv src;; (* Estensione di ambiente *)
 
 (* Utility Functions *)
 let eval_to_exval x = Eval(x);; (* eval -> exval *)
@@ -81,13 +84,32 @@ let rec slice start stop tup = match tup with
 	  Void -> Void
 	| Add(curr, tail) when start <= stop -> Add(curr, slice (start+1) stop tail)
 	| _                                  -> Void;;
+	
+let rec search (needle, where) = match where with
+	  Void      -> Bool(false)
+	| Add(v, t) -> if(v = needle) then Bool(true) else search (needle, t);;
+	
+let direct_access position tup =
+	let rec direct_access_rec (position, tup, n) =
+		if (position >= 0) then ( 
+			match tup with
+				  Add(value, tail) -> if (n = position) then value else direct_access_rec (position, tup, (n+1))
+				| _                -> raise OutOfBound
+		) else (
+			match tup with
+				  Add(value, tail) when n <> position -> direct_access_rec (position, tup, (n-1))
+				| Add(value, tail) when n = position  -> value
+				| _                                   -> raise OutOfBound
+		)
+	in if (position >= 0) then direct_access_rec (position, tup, 0) else direct_access_rec (position, tup, -1);;
 
 (* Semantica Operazionale / Eseguibile *)
 let rec sem (espr, amb) = match espr with
 	(* Tipi primitivi + valori nell'ambiente *)
-	  Var(var)                   -> eval_to_exval( amb var )
+	  Var(var)                   -> amb var (* l'ambiente restituisce già una exval *)
 	| Eint(x)                    -> eval_to_exval( Int x )
 	| Ebool(x)                   -> eval_to_exval( Bool x )
+	| Etuple(x)                  -> eval_to_exval( Tuple x )
 	| Fun(par_form, body)        -> fval_to_exval( Funval(Fun(par_form, body), amb) ) (* chiusura *)
 	(* Operazioni Primitive *)
 	| Plus(add1, add2)           -> eval_to_exval( op( "plus", sem (add1, amb), sem(add2, amb) ) )
@@ -107,7 +129,7 @@ let rec sem (espr, amb) = match espr with
 		| _       -> failwith "Non-boolean guard" )
 	(* Operazioni Complesse *)
 	| Let(var, value, body)      -> sem(body, bind(var, sem(value, amb), amb))
-	| Appl(fun_name, par_att)    -> ( match parse_fval sem(fun_name, amb) with
+	| Appl(fun_name, par_att)    -> ( match parse_fval( sem(fun_name, amb) ) with
 		  Funval(Fun(par_form, body), static_env) -> sem(body, bind(par_form, sem(par_att, amb), static_env))
 		| _                                       -> failwith "Not a function" )
 	| IsEmpty(t)                 -> ( match t with 
@@ -116,6 +138,14 @@ let rec sem (espr, amb) = match espr with
 			| _    -> eval_to_exval( Bool(false) ) )
 		| _             -> failwith "Can't apply IsEmpty on a non-tuple value."
 		)
-	| Slice(start, stop, t)      -> eval_to_exval (slice start stop t)
+	| Slice(start, stop, t)      -> ( match t with
+		  Etuple(tupla) -> eval_to_exval ( Tuple(slice start stop tupla) ) 
+		| _             -> failwith "Can't slice a non-tuple value."  )
+	| In(value, t)           -> ( match t with
+		  Etuple(tupla) -> eval_to_exval ( search(value, tupla) )
+		| _             -> failwith "Can't search for something on a non-tuple value" )
+	| Access(pos, t)         -> ( match t with
+		  Etuple(tupla) -> eval_to_exval ( direct_access pos tupla )
+		| _             -> failwith "Can't access to a position on a non-tuple value" )
 	;;
 	
