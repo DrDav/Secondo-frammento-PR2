@@ -40,12 +40,12 @@ type exp =
 	| Slice of int * int * exp
 	;;
 	
-type fval = FunVal of efun
+type fval = Funval of efun
 and efun = exp * environment
-and environment = ide -> eval;;
-
+and environment = ide -> exval
+and
 (* Extended Values *)
-type exval = Eval of eval | Fval of fval;;
+    exval = Eval of eval | Fval of fval;;
 
 (* Ambiente / Binding *)
 let env:environment = fun var -> raise EmptyEnv;;
@@ -53,7 +53,16 @@ let env:environment = fun var -> raise EmptyEnv;;
 let bind (var, espr, oldenv) = fun (src : ide) -> if src = var then espr else oldenv src;; (* Estensione di ambiente *)
 
 (* Utility Functions *)
-let op (operation, x, y) = match (operation, x, y) with
+let eval_to_exval x = Eval(x);; (* eval -> exval *)
+let fval_to_exval x = Fval(x);; (* fval -> exval *)
+let parse_eval x = match x with 
+	  Eval(y) -> y (* exval -> eval *)
+	| _       -> failwith "Not an eval type";;
+let parse_fval x = match x with
+	  Fval(y) -> y (* exval -> fval *)
+	| _       -> failwith "Not a fval type";;
+	
+let op (operation, x, y) = match (operation, parse_eval x, parse_eval y) with
 	  ("plus", Int(op1), Int(op2)) -> Int(op1+op2)
 	| ("diff", Int(op1), Int(op2)) -> Int(op1-op2)
 	| ("mul", Int(op1), Int(op2))  -> Int(op1*op2)
@@ -72,37 +81,28 @@ let rec slice start stop tup = match tup with
 	  Void -> Void
 	| Add(curr, tail) when start <= stop -> Add(curr, slice (start+1) stop tail)
 	| _                                  -> Void;;
-	
-let eval_to_exval x = Eval(x);; (* eval -> exval *)
-let fval_to_exval x = Fval(x);; (* fval -> exval *)
-let parse_eval x:exval -> match x with 
-	  Eval(y) -> y (* exval -> eval *)
-	| _       -> failwith "Not an eval type";;
-let parse_fval x:exval -> match x with
-	  Fval(y) -> y (* exval -> fval *)
-	| _       -> failwith "Not a fval type";;
 
 (* Semantica Operazionale / Eseguibile *)
 let rec sem (espr, amb) = match espr with
 	(* Tipi primitivi + valori nell'ambiente *)
-	  Var(var)                   -> eval_to_exval amb var
-	| Eint(x)                    -> eval_to_exval Int x
-	| Ebool(x)                   -> eval_to_exval Bool x
-	| Fun(par_form, body)        -> fval_to_exval Funval(Fun(par_form, body), amb) (* chiusura *)
+	  Var(var)                   -> eval_to_exval( amb var )
+	| Eint(x)                    -> eval_to_exval( Int x )
+	| Ebool(x)                   -> eval_to_exval( Bool x )
+	| Fun(par_form, body)        -> fval_to_exval( Funval(Fun(par_form, body), amb) ) (* chiusura *)
 	(* Operazioni Primitive *)
-	| Plus(add1, add2)           -> eval_to_exval op( "plus", sem (add1, amb), sem(add2, amb) )
-	| Diff(min1, min2)           -> eval_to_exval op( "diff", sem (min1, amb), sem(min2, amb) )
-	| Mul(fat1, fat2)            -> eval_to_exval op( "mul", sem (fat1, amb), sem(fat2, amb) )
-	| Div(div1, div2)            -> eval_to_exval op( "div", sem (div1, amb), sem(div2, amb) )
-	| Minus(num)                 -> eval_to_exval op( "minus", sem(num, amb), Unbound ) (* Uso speciale della costante Unbound per il terzo parametro *)
-	| IsZero(num)                -> eval_to_exval op( "cmp0", sem(num, amb), Unbound )
-	| And(esp1, esp2)            -> eval_to_exval op( "and", sem(esp1, amb), sem(esp2, amb) )
-	| Or(esp1, esp2)             -> eval_to_exval op( "or", sem(esp1, amb), sem(esp2, amb) )
-	| Equ(esp1, esp2)            -> eval_to_exval op( "equ", sem(esp1, amb), sem(esp2, amb) )
-	| Not(esp)                   -> eval_to_exval op( "not", sem(esp, amb), Unbound )
-	| LTE(num1, num2)            -> eval_to_exval op( "lte", sem(num1, amb), sem(num2, amb) )
-	| GTE(num1, num2)            -> eval_to_exval op( "gte", sem(num1, amb), sem(num2, amb) )
-	| ITE(guardia, ramoT, ramoE) -> ( match parse_eval sem(guardia, amb) with
+	| Plus(add1, add2)           -> eval_to_exval( op( "plus", sem (add1, amb), sem(add2, amb) ) )
+	| Diff(min1, min2)           -> eval_to_exval( op( "diff", sem (min1, amb), sem(min2, amb) ) )
+	| Mul(fat1, fat2)            -> eval_to_exval( op( "mul", sem (fat1, amb), sem(fat2, amb) ) )
+	| Div(div1, div2)            -> eval_to_exval( op( "div", sem (div1, amb), sem(div2, amb) ) )
+	| Minus(num)                 -> eval_to_exval( op( "minus", sem(num, amb), eval_to_exval Unbound ) ) (* Uso speciale della costante Unbound per il terzo parametro *)
+	| IsZero(num)                -> eval_to_exval( op( "cmp0", sem(num, amb), eval_to_exval Unbound ) )
+	| And(esp1, esp2)            -> eval_to_exval( op( "and", sem(esp1, amb), sem(esp2, amb) ) )
+	| Or(esp1, esp2)             -> eval_to_exval( op( "or", sem(esp1, amb), sem(esp2, amb) ) )
+	| Equ(esp1, esp2)            -> eval_to_exval( op( "equ", sem(esp1, amb), sem(esp2, amb) ) )
+	| Not(esp)                   -> eval_to_exval( op( "not", sem(esp, amb), eval_to_exval Unbound ) )
+	| LTE(num1, num2)            -> eval_to_exval( op( "lte", sem(num1, amb), sem(num2, amb) ) )
+	| GTE(num1, num2)            -> eval_to_exval( op( "gte", sem(num1, amb), sem(num2, amb) ) )
+	| ITE(guardia, ramoT, ramoE) -> ( match parse_eval( sem(guardia, amb) ) with
 		  Bool(g) -> if (g = true) then sem(ramoT, amb) else sem(ramoE, amb)
 		| _       -> failwith "Non-boolean guard" )
 	(* Operazioni Complesse *)
@@ -112,8 +112,8 @@ let rec sem (espr, amb) = match espr with
 		| _                                       -> failwith "Not a function" )
 	| IsEmpty(t)                 -> ( match t with 
 		  Etuple(tupla) -> ( match tupla with
-			  Void -> Bool(true)
-			| _    -> Bool(false) )
+			  Void -> eval_to_exval( Bool(true) )
+			| _    -> eval_to_exval( Bool(false) ) )
 		| _             -> failwith "Can't apply IsEmpty on a non-tuple value."
 		)
 	| Slice(start, stop, t)      -> eval_to_exval (slice start stop t)
