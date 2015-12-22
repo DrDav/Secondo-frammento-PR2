@@ -89,16 +89,18 @@ let rec search (needle, where) = match where with
 	  Void      -> Bool(false)
 	| Add(v, t) -> if(v = needle) then Bool(true) else search (needle, t);;
 	
+(* Devo girare la lista per poterla esplorare al contrario *)
+	
 let direct_access position tup =
 	let rec direct_access_rec (position, tup, n) =
 		if (position >= 0) then ( 
 			match tup with
-				  Add(value, tail) -> if (n = position) then value else direct_access_rec (position, tup, (n+1))
-				| _                -> raise OutOfBound
-		) else (
+				  Void             -> raise OutOfBound
+				| Add(value, tail) -> if (n = position) then value else direct_access_rec (position, tail, (n+1))
+			) else (
 			match tup with
-				  Add(value, tail) when n <> position -> direct_access_rec (position, tup, (n-1))
-				| Add(value, tail) when n = position  -> value
+				  Add(value, tail) when n <> position -> direct_access_rec (position, tail, (n-1))
+				| Add(value, _) when n = position  -> value
 				| _                                   -> raise OutOfBound
 		)
 	in if (position >= 0) then direct_access_rec (position, tup, 0) else direct_access_rec (position, tup, -1);;
@@ -139,13 +141,22 @@ let rec sem (espr, amb) = match espr with
 		| _             -> failwith "Can't apply IsEmpty on a non-tuple value."
 		)
 	| Slice(start, stop, t)      -> ( match t with
-		  Etuple(tupla) -> eval_to_exval ( Tuple(slice start stop tupla) ) 
+		  Etuple(tupla) -> eval_to_exval( Tuple(slice start stop tupla) ) 
 		| _             -> failwith "Can't slice a non-tuple value."  )
 	| In(value, t)           -> ( match t with
-		  Etuple(tupla) -> eval_to_exval ( search(value, tupla) )
+		  Etuple(tupla) -> ( match value with 
+		  	  Eint(x)  -> eval_to_exval( search(Int(x), tupla) )
+		  	| Ebool(x) -> eval_to_exval( search(Bool(x), tupla) )
+		  	| _        -> failwith "Can't search for a non-primitive value on a tuple" )
 		| _             -> failwith "Can't search for something on a non-tuple value" )
 	| Access(pos, t)         -> ( match t with
 		  Etuple(tupla) -> eval_to_exval ( direct_access pos tupla )
 		| _             -> failwith "Can't access to a position on a non-tuple value" )
 	;;
 	
+	
+
+
+let provaexp = Etuple (Add (Tuple (Add (Int 47, Add (Bool true, Void))),  Add(Bool false, Void)    ));;
+
+parse_eval (sem( Access(0, provaexp), env));;
