@@ -92,18 +92,16 @@ let rec search (needle, where) = match where with
 (* Devo girare la lista per poterla esplorare al contrario *)
 	
 let direct_access position tup =
+	let rec t_length t = match t with
+			  Void         -> 0
+			| Add(_, tail) -> 1 + t_length tail
+	in
 	let rec direct_access_rec (position, tup, n) =
-		if (position >= 0) then ( 
-			match tup with
-				  Void             -> raise OutOfBound
-				| Add(value, tail) -> if (n = position) then value else direct_access_rec (position, tail, (n+1))
-			) else (
-			match tup with
-				  Add(value, tail) when n <> position -> direct_access_rec (position, tail, (n-1))
-				| Add(value, _) when n = position  -> value
-				| _                                   -> raise OutOfBound
-		)
-	in if (position >= 0) then direct_access_rec (position, tup, 0) else direct_access_rec (position, tup, -1);;
+		match tup with
+			  Void             -> raise OutOfBound
+			| Add(value, tail) -> if (n = position) then value else direct_access_rec (position, tail, (n+1))
+	in 
+	if (position >= 0) then direct_access_rec (position, tup, 0) else direct_access_rec ((t_length tup)+position, tup, 0);;
 
 (* Semantica Operazionale / Eseguibile *)
 let rec sem (espr, amb) = match espr with
