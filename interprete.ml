@@ -80,28 +80,34 @@ let op (operation, x, y) = match (operation, parse_eval x, parse_eval y) with
 	| ("gte", Int(n), Int(m))      -> if (n >= m) then Bool(true) else Bool(false)
 	| _                            -> failwith "Unknown Primitive / Type Error";;
 
-let rec slice start stop tup = match tup with
-	  Void -> Void
-	| Add(curr, tail) when start <= stop -> Add(curr, slice (start+1) stop tail)
-	| _                                  -> Void;;
-	
-let rec search (needle, where) = match where with
-	  Void      -> Bool(false)
-	| Add(v, t) -> if(v = needle) then Bool(true) else search (needle, t);;
-	
+(* Calcola la lunghezza di una tupla *)
+let rec t_length t = match t with
+			  Void         -> 0
+			| Add(_, tail) -> 1 + t_length tail;;
+
 (* Devo girare la lista per poterla esplorare al contrario *)
 	
 let direct_access position tup =
-	let rec t_length t = match t with
-			  Void         -> 0
-			| Add(_, tail) -> 1 + t_length tail
-	in
 	let rec direct_access_rec (position, tup, n) =
 		match tup with
 			  Void             -> raise OutOfBound
 			| Add(value, tail) -> if (n = position) then value else direct_access_rec (position, tail, (n+1))
 	in 
 	if (position >= 0) then direct_access_rec (position, tup, 0) else direct_access_rec ((t_length tup)+position, tup, 0);;
+	
+let rec slice start stop tup = 
+	if (start < 0 && stop <= start) then
+		if (start >= stop) then Add((direct_access start tup), slice (start-1) stop tup) else Void
+	else if (start >= 0 && stop >= start) then
+		if (start <= stop) then Add((direct_access start tup), slice (start+1) stop tup) else Void
+	else 
+		raise OutOfBound;;
+	
+let rec search (needle, where) = match where with
+	  Void      -> Bool(false)
+	| Add(v, t) -> if(v = needle) then Bool(true) else search (needle, t);;
+	
+
 
 (* Semantica Operazionale / Eseguibile *)
 let rec sem (espr, amb) = match espr with
@@ -152,9 +158,9 @@ let rec sem (espr, amb) = match espr with
 		| _             -> failwith "Can't access to a position on a non-tuple value" )
 	;;
 	
-	
-
-
-let provaexp = Etuple (Add (Tuple (Add (Int 47, Add (Bool true, Void))),  Add(Bool false, Void)    ));;
-
-parse_eval (sem( Access(0, provaexp), env));;
+(* Funzioni utili per valutare espressioni *) 
+let ev environment = fun expression -> parse_eval( sem( expression, environment ) );;
+let evaluate = ev env;; (* valuta nell'ambiente di default *)
+let get_tuple eval = match eval with
+	  Tuple(t) -> t
+	| _        -> Void;;
