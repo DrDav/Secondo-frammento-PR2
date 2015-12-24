@@ -96,9 +96,9 @@ let direct_access position tup =
 	if (position >= 0) then direct_access_rec (position, tup, 0) else direct_access_rec ((t_length tup)+position, tup, 0);;
 	
 let rec slice start stop tup = 
-	if (start < 0 && stop <= start) then
+	if (start < 0 && stop <= (start+1)) then 
 		if (start >= stop) then Add((direct_access start tup), slice (start-1) stop tup) else Void
-	else if (start >= 0 && stop >= start) then
+	else if (start >= 0 && stop >= (start-1)) then
 		if (start <= stop) then Add((direct_access start tup), slice (start+1) stop tup) else Void
 	else 
 		raise OutOfBound;;
@@ -147,13 +147,13 @@ let rec sem (espr, amb) = match espr with
 	| Slice(start, stop, t)      -> ( match t with
 		  Etuple(tupla) -> eval_to_exval( Tuple(slice start stop tupla) ) 
 		| _             -> failwith "Can't slice a non-tuple value."  )
-	| In(value, t)           -> ( match t with
+	| In(value, t)               -> ( match t with
 		  Etuple(tupla) -> ( match value with 
 		  	  Eint(x)  -> eval_to_exval( search(Int(x), tupla) )
 		  	| Ebool(x) -> eval_to_exval( search(Bool(x), tupla) )
 		  	| _        -> failwith "Can't search for a non-primitive value on a tuple" )
 		| _             -> failwith "Can't search for something on a non-tuple value" )
-	| Access(pos, t)         -> ( match t with
+	| Access(pos, t)             -> ( match t with
 		  Etuple(tupla) -> eval_to_exval ( direct_access pos tupla )
 		| _             -> failwith "Can't access to a position on a non-tuple value" )
 	;;
@@ -164,3 +164,18 @@ let evaluate = ev env;; (* valuta nell'ambiente di default *)
 let get_tuple eval = match eval with
 	  Tuple(t) -> t
 	| _        -> Void;;
+	
+	
+(* Tupla dell'esempio - 23, true, (45, 7), false*)
+
+let tupexample = Etuple( Add(Int 23, Add(Bool true, Add(Tuple( Add(Int 45, Add(Int 7, Void)) ), Add(Bool false, Void ) ) ) ) );;
+
+evaluate (Access(0, tupexample));; (* t[0] *)
+evaluate (Access(2, tupexample));; (* t[2] *)
+evaluate (Access(4, tupexample));; (* t[4] -> eccezione *)
+evaluate (Access(-1, tupexample));; (* t[-1] *)
+evaluate (Access(-3, tupexample));; (* t[-3] *)
+evaluate (Access(-5, tupexample));; (* t[-5] -> eccezione *)
+evaluate (Slice(1, 2, tupexample));; (* t[1:2] *)
+evaluate (Slice(-1, -3, tupexample));; (* t[-1:-3] *)
+evaluate (Slice(-1, 1, tupexample));; (* t[-1:1] -> eccezione *)
