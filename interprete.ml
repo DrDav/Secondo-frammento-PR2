@@ -190,12 +190,18 @@ let rec sem (espr, amb) = match espr with
 	| _                          -> failwith "Non legal expression"
 	;;
 	
-(* Funzioni utili per valutare espressioni *) 
+(* Funzioni utili per valutare espressioni senza appesantire la notazione *) 
 let ev environment = fun expression -> parse_eval( sem( expression, environment ) );;
 let evaluate = ev env;; (* valuta nell'ambiente di default *)
-let get_tuple eval = match eval with
+let get_tuple eval = match eval with (* Restituisce la tupla di tipo tuple e partendo dal tipo eval *)
 	  Tuple(t) -> t
 	| _        -> Void;;
+	
+let toList tupla = 
+	let rec toL t = match t with
+		  Void            -> []
+		| Add(elem, tail) -> elem :: toL tail
+	in toL (get_tuple tupla);;
 	
 	
 (* Tupla dell'esempio - 23, true, (45, 7), false*)
@@ -212,3 +218,4 @@ evaluate (Access(-5, tupexample));; (* t[-5] -> eccezione *)
 evaluate (Slice(1, 2, tupexample));; (* t[1:2] *)
 evaluate (Slice(-1, -3, tupexample));; (* t[-1:-3] *)
 evaluate (Slice(-1, 1, tupexample));; (* t[-1:1] -> eccezione *)
+toList (evaluate ciclo);; 
