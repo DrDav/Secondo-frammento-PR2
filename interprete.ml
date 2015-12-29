@@ -165,14 +165,14 @@ let rec sem (espr, amb) = match espr with
 		| _            -> failwith "Can't access to a position on a non-tuple value" 
 		)
 	| In(value, tupla)           -> eval_to_exval( search( sem(value, amb), tupla ) )
-	| For(var, tupla, body)      -> let rec loop i max tup first_type = match tup with
-						Add(elem, tail) when i < max -> if ((get_type elem) = first_type) then
-							Add( parse_eval (sem(body, bind(var, (eval_to_exval elem), amb))), (* Se è del tipo giusto applico l'operazione *)
-							 loop (i+1) max tail first_type)
-										else
-										 loop (i+1) max tail first_type (* Se non è del tipo inziale vado avanti *)
-						| _                          -> Void
-					in eval_to_exval(Tuple(loop 0 (t_length tupla) tupla (get_type (direct_access 0 tupla))))
+	| For(var, tupla, body)      -> let rec loop tup = match tup with
+		  Add(elem, tail) -> (try
+					Add( parse_eval (sem(body, bind(var, (eval_to_exval elem), amb))), (* Se è del tipo giusto applico l'operazione *)
+					    loop tail)
+				   with
+					Failure("Unknown Primitive / Type Error") ->  loop tail )(* Se non è del tipo inziale vado avanti *)
+		| _		  -> Void
+					in eval_to_exval(Tuple(loop tupla))
 	| _                          -> failwith "Non legal expression"
 	;;
 	
@@ -194,7 +194,7 @@ let toList tupla = (* trasforma una tupla in lista, per una leggerla meglio *)
 	
 (* Tupla dell'esempio - 23, true, (45, 7), false*)
 
-let tupexample = Etuple( Add(Int 23, Add(Bool true, Add(Tuple( Add(Int 45, Add(Int 7, Void)) ), Add(Bool false, Void ) ) ) ) );;
+let tupexample = Etuple( Add(Int 23, Add(Bool true, Add(Tuple( Add(Int 45, Add(Int 7, Void)) ), Add(Bool false, Add(Int 12, Void ) ) ) ) ) );;
 let ciclo = For("x", get_tuple( evaluate tupexample ), Plus(Var "x", Eint(1)));;
 
 evaluate (Access(0, tupexample));;     (* t[0] -> Int 23 *)
