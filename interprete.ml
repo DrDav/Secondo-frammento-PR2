@@ -42,9 +42,9 @@ type exp =
 	| Appl of exp * exp (* Applicazione di Funzione *)
 	| IsEmpty of tuple (* Controlla se una tupla è vuota *)
 	| Slice of int * int * exp (* Operatore di Slicing su tuple *)
-	| In of exp * tuple (* Controlla se un certo valore è contenuto in una certa tupla *)
 	| Access of int * exp (* Accede direttamente all'i-esimo elemento di una tupla *)
-	| For of ide * exp * exp (* For Loop su tuple *)
+	| In of exp * tuple (* Controlla se un certo valore è contenuto in una certa tupla *)
+	| For of ide * tuple * exp (* For Loop su tuple *)
 	;;
 	
 type fval = Funval of efun
@@ -120,72 +120,70 @@ let rec slice start stop tup =
 (* Cerca needle all'interno della tupla where *)	
 let rec search (needle, where) = match where with
 	  Void      -> Bool(false)
-	| Add(v, t) -> if(v = needle) then Bool(true) else search (needle, t);; (* ricerca lineare ricorsiva *)
+	| Add(v, t) -> if(v = parse_eval(needle)) then Bool(true) else search (needle, t);; (* ricerca lineare ricorsiva *)
 	
-
-
 (* Semantica Operazionale / Eseguibile *)
 (* Restituisce una EXVAL (extended value) per trattare allo stesso livello funzioni e valori base (e per uniformare il tipo restituito) *)
 let rec sem (espr, amb) = match espr with
 	(* Tipi primitivi + valori nell'ambiente *)
-	  Var(var)                        -> amb var (* l'ambiente restituisce già una exval *)
-	| Eint(x)                         -> eval_to_exval( Int x )
-	| Ebool(x)                        -> eval_to_exval( Bool x )
-	| Etuple(x)                       -> eval_to_exval( Tuple x )
-	| Fun(par_form, body)             -> fval_to_exval( Funval(Fun(par_form, body), amb) ) (* chiusura *)
+	  Var(var)                   -> amb var (* l'ambiente restituisce già una exval *)
+	| Eint(x)                    -> eval_to_exval( Int x )
+	| Ebool(x)                   -> eval_to_exval( Bool x )
+	| Etuple(x)                  -> eval_to_exval( Tuple x )
+	| Fun(par_form, body)        -> fval_to_exval( Funval(Fun(par_form, body), amb) ) (* chiusura *)
 	(* Operazioni Primitive *)
-	| Plus(add1, add2)                -> eval_to_exval( op( "plus", sem (add1, amb), sem(add2, amb) ) )
-	| Diff(min1, min2)                -> eval_to_exval( op( "diff", sem (min1, amb), sem(min2, amb) ) )
-	| Mul(fat1, fat2)                 -> eval_to_exval( op( "mul", sem (fat1, amb), sem(fat2, amb) ) )
-	| Div(div1, div2)                 -> eval_to_exval( op( "div", sem (div1, amb), sem(div2, amb) ) )
-	| Minus(num)                      -> eval_to_exval( op( "minus", sem(num, amb), eval_to_exval Unbound ) ) (* Uso speciale della costante Unbound per il terzo parametro *)
-	| IsZero(num)                     -> eval_to_exval( op( "cmp0", sem(num, amb), eval_to_exval Unbound ) )
-	| And(esp1, esp2)                 -> eval_to_exval( op( "and", sem(esp1, amb), sem(esp2, amb) ) )
-	| Or(esp1, esp2)                  -> eval_to_exval( op( "or", sem(esp1, amb), sem(esp2, amb) ) )
-	| Equ(esp1, esp2)                 -> eval_to_exval( op( "equ", sem(esp1, amb), sem(esp2, amb) ) )
-	| Not(esp)                        -> eval_to_exval( op( "not", sem(esp, amb), eval_to_exval Unbound ) )
-	| LTE(num1, num2)                 -> eval_to_exval( op( "lte", sem(num1, amb), sem(num2, amb) ) )
-	| GTE(num1, num2)                 -> eval_to_exval( op( "gte", sem(num1, amb), sem(num2, amb) ) )
+	| Plus(add1, add2)           -> eval_to_exval( op( "plus", sem (add1, amb), sem(add2, amb) ) )
+	| Diff(min1, min2)           -> eval_to_exval( op( "diff", sem (min1, amb), sem(min2, amb) ) )
+	| Mul(fat1, fat2)            -> eval_to_exval( op( "mul", sem (fat1, amb), sem(fat2, amb) ) )
+	| Div(div1, div2)            -> eval_to_exval( op( "div", sem (div1, amb), sem(div2, amb) ) )
+	| Minus(num)                 -> eval_to_exval( op( "minus", sem(num, amb), eval_to_exval Unbound ) ) (* Uso speciale della costante Unbound per il terzo parametro *)
+	| IsZero(num)                -> eval_to_exval( op( "cmp0", sem(num, amb), eval_to_exval Unbound ) )
+	| And(esp1, esp2)            -> eval_to_exval( op( "and", sem(esp1, amb), sem(esp2, amb) ) )
+	| Or(esp1, esp2)             -> eval_to_exval( op( "or", sem(esp1, amb), sem(esp2, amb) ) )
+	| Equ(esp1, esp2)            -> eval_to_exval( op( "equ", sem(esp1, amb), sem(esp2, amb) ) )
+	| Not(esp)                   -> eval_to_exval( op( "not", sem(esp, amb), eval_to_exval Unbound ) )
+	| LTE(num1, num2)            -> eval_to_exval( op( "lte", sem(num1, amb), sem(num2, amb) ) )
+	| GTE(num1, num2)            -> eval_to_exval( op( "gte", sem(num1, amb), sem(num2, amb) ) )
 	(* Operazioni Complesse *)
-	| ITE(guardia, ramoT, ramoE)      -> ( match parse_eval( sem(guardia, amb) ) with
+	| ITE(guardia, ramoT, ramoE) -> ( match parse_eval( sem(guardia, amb) ) with
 		  Bool(g) -> if (g = true) then sem(ramoT, amb) else sem(ramoE, amb)
 		| _       -> failwith "Non-boolean guard" )
-	| Let(var, value, body)           -> sem(body, bind(var, sem(value, amb), amb))
-	| Appl(fun_name, par_att)         -> ( match parse_fval( sem(fun_name, amb) ) with
+	| Let(var, value, body)      -> sem(body, bind(var, sem(value, amb), amb))
+	| Appl(fun_name, par_att)    -> ( match parse_fval( sem(fun_name, amb) ) with
 		  Funval(Fun(par_form, body), static_env) -> sem(body, bind(par_form, sem(par_att, amb), static_env))
 		| _                                       -> failwith "Not a function" )
-	| IsEmpty(t)                      -> ( match t with 
+	| IsEmpty(t)                 -> ( match t with 
 		  Void -> eval_to_exval( Bool(true) )
 		| _    -> eval_to_exval( Bool(false) ) 
 		)
-	| Slice(start, stop, tupexp)      -> ( match parse_eval( sem(tupexp, amb) ) with
+	| Slice(start, stop, tupexp) -> ( match parse_eval( sem(tupexp, amb) ) with
 		  Tuple(tupla) -> eval_to_exval( Tuple(slice start stop tupla) ) 
-		| _             -> failwith "Can't slice a non-tuple value."  
+		| _            -> failwith "Can't slice a non-tuple value."  
 		)
-	| In(value, t)                    -> eval_to_exval( search( sem(value, amb), t ) )
-	| Access(pos, t)                  -> ( match t with
-		  Etuple(tupla) -> eval_to_exval ( direct_access pos tupla )
-		| _             -> failwith "Can't access to a position on a non-tuple value" 
+	| Access(pos, tupexp)        -> ( match parse_eval( sem(tupexp, amb) ) with
+		  Tuple(tupla) -> eval_to_exval ( direct_access pos tupla )
+		| _            -> failwith "Can't access to a position on a non-tuple value" 
 		)
-	| For(var, t, body)               -> let rec loop i max tup first_type = match tup with
-		  			  Add(elem, tail) when i < max -> if ((get_type elem) = first_type) then
-		  			  					Add( parse_eval (sem(body, bind(var, (eval_to_exval elem), amb))), (* Se è del tipo giusto applico l'operazione *)
-		  			  					    loop (i+1) max tail first_type)
-		  			  				  else
-		  			  				  	loop (i+1) max tail first_type (* Se non è del tipo inziale vado avanti *)
-		  			| _                            -> Void
-		  			     in eval_to_exval(Tuple(loop 0 (t_length tupla) tupla (get_type (direct_access 0 tupla))))
-	| _                               -> failwith "Non legal expression"
+	| In(value, tupla)           -> eval_to_exval( search( sem(value, amb), tupla ) )
+	| For(var, tupla, body)     -> let rec loop i max tup first_type = match tup with
+										Add(elem, tail) when i < max -> if ((get_type elem) = first_type) then
+														 Add( parse_eval (sem(body, bind(var, (eval_to_exval elem), amb))), (* Se è del tipo giusto applico l'operazione *)
+																loop (i+1) max tail first_type)
+														else
+														 loop (i+1) max tail first_type (* Se non è del tipo inziale vado avanti *)
+										| _                          -> Void
+									in eval_to_exval(Tuple(loop 0 (t_length tupla) tupla (get_type (direct_access 0 tupla))))
+	| _                    -> failwith "Non legal expression"
 	;;
 	
 (* Funzioni utili per valutare espressioni senza appesantire la notazione *) 
 let ev environment = fun expression -> parse_eval( sem( expression, environment ) );;
 let evaluate = ev env;; (* valuta nell'ambiente di default *)
-let get_tuple eval = match eval with (* Restituisce la tupla di tipo tuple e partendo dal tipo eval *)
+let get_tuple eval = match eval with (* Restituisce la tupla di tipo tuple, partendo dal tipo eval *)
 	  Tuple(t) -> t
 	| _        -> Void;;
 	
-let toList tupla = 
+let toList tupla = (* trasforma una tupla in lista, per una leggerla meglio *)
 	let rec toL t = match t with
 		  Void            -> []
 		| Add(elem, tail) -> elem :: toL tail
@@ -195,15 +193,15 @@ let toList tupla =
 (* Tupla dell'esempio - 23, true, (45, 7), false*)
 
 let tupexample = Etuple( Add(Int 23, Add(Bool true, Add(Tuple( Add(Int 45, Add(Int 7, Void)) ), Add(Bool false, Void ) ) ) ) );;
-let ciclo = For("x", tupexample, Plus(Var "x", Eint(1)));;
+let ciclo = For("x", get_tuple( evaluate tupexample ), Plus(Var "x", Eint(1)));;
 
-evaluate (Access(0, tupexample));; (* t[0] *)
-evaluate (Access(2, tupexample));; (* t[2] *)
-evaluate (Access(4, tupexample));; (* t[4] -> eccezione *)
-evaluate (Access(-1, tupexample));; (* t[-1] *)
-evaluate (Access(-3, tupexample));; (* t[-3] *)
-evaluate (Access(-5, tupexample));; (* t[-5] -> eccezione *)
-evaluate (Slice(1, 2, tupexample));; (* t[1:2] *)
-evaluate (Slice(-1, -3, tupexample));; (* t[-1:-3] *)
-evaluate (Slice(-1, 1, tupexample));; (* t[-1:1] -> eccezione *)
-toList (evaluate ciclo);; 
+evaluate (Access(0, tupexample));;     (* t[0] -> Int 23 *)
+evaluate (Access(2, tupexample));;     (* t[2] -> (Int 45, Int 7) *)
+evaluate (Access(4, tupexample));;     (* t[4] -> eccezione *)
+evaluate (Access(-1, tupexample));;    (* t[-1] -> Bool false *)
+evaluate (Access(-3, tupexample));;    (* t[-3] -> Bool true *)
+evaluate (Access(-5, tupexample));;    (* t[-5] -> eccezione *)
+evaluate (Slice(1, 2, tupexample));;   (* t[1:2] -> (Bool true, (Int 45, Int 7)) *)
+evaluate (Slice(-1, -3, tupexample));; (* t[-1:-3] -> (Bool false, (Int 45, Int 7), Bool true) *)
+evaluate (Slice(-1, 1, tupexample));;  (* t[-1:1] -> eccezione *)
+toList (evaluate ciclo);;              (* [24] *)
