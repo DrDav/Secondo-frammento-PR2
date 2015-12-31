@@ -1,6 +1,7 @@
 (* Eccezioni *)
 exception EmptyEnv;; (* Ambiente vuoto - quello di default *)
-exception OutOfBound;; (* Accesso fuori dalla tupla *)
+exception OutOfBounds;; (* Accesso fuori dalla tupla *)
+exception InvalidLoop;; (* Dichiarazione di funzione all'interno del for *)
 
 (* Tipi per la sintassi astratta *)
 type ide = string;;
@@ -102,7 +103,7 @@ let rec t_length t = match t with
 let direct_access position tup =
 	let rec direct_access_rec (position, tup, n) = (* Funzione ausiliaria ricorsiva *)
 		match tup with
-			  Void             -> raise OutOfBound (* Sono arrivato fuori dalla tupla, o la tupla era vuota *)
+			  Void             -> raise OutOfBounds (* Sono arrivato fuori dalla tupla, o la tupla era vuota *)
 			| Add(value, tail) -> if (n = position) then value else direct_access_rec (position, tail, (n+1))
 	in 
 	if (position >= 0) then direct_access_rec (position, tup, 0) else direct_access_rec ((t_length tup)+position, tup, 0);;
@@ -115,7 +116,7 @@ let rec slice start stop tup =
 	else if (start >= 0 && stop >= (start-1)) then (* ... o entrambi negativi (lavoro sporco lasciato alla direct_access() *)
 		if (start <= stop) then Add((direct_access start tup), slice (start+1) stop tup) else Void (* chiusura ricorsione *)
 	else (* Nessun'altra combinazione consentita *)
-		raise OutOfBound;;
+		raise OutOfBounds;;
 
 (* Cerca needle all'interno della tupla where *)	
 let rec search (needle, where) = match where with
@@ -167,8 +168,11 @@ let rec sem (espr, amb) = match espr with
 	| In(value, tupla)           -> eval_to_exval( search( sem(value, amb), tupla ) )
 	| For(var, tupla, body)      -> let rec loop tup = match tup with
 		  Add(elem, tail) -> (try
-					Add( parse_eval (sem(body, bind(var, (eval_to_exval elem), amb))), (* Se è del tipo giusto applico l'operazione *)
-					    loop tail)
+					let semantica = sem(body, bind(var, (eval_to_exval elem), amb))
+					in (match semantica with
+						  Fval(_) -> raise InvalidLoop
+						| _       -> Add( parse_eval (semantica), (* Se è del tipo giusto applico l'operazione *)
+								  loop tail))
 				   with
 					Failure("Unknown Primitive / Type Error") ->  loop tail )(* Se non è del tipo inziale vado avanti *)
 		| _		  -> Void
