@@ -194,20 +194,3 @@ let toList tupla = (* trasforma una tupla in lista, per una leggerla meglio *)
 			  Tuple(tupla_interna) -> (toL tupla_interna) @ toL tail
 			| _                    -> elem :: toL tail
 	in toL (get_tuple tupla);;
-	
-	
-(* Tupla dell'esempio - 23, true, (45, 7), false*)
-
-let tupexample = Etuple( Add(Int 23, Add(Bool true, Add(Tuple( Add(Int 45, Add(Int 7, Void)) ), Add(Bool false, Add(Int 12, Void ) ) ) ) ) );;
-let ciclo = For("x", get_tuple( evaluate tupexample ), Plus(Var "x", Eint(1)));;
-
-evaluate (Access(0, tupexample));;     (* t[0] -> Int 23 *)
-toList (evaluate (Access(2, tupexample)));;     (* t[2] -> [Int 45; Int 7] *)
-evaluate (Access(4, tupexample));;     (* t[4] -> eccezione *)
-evaluate (Access(-1, tupexample));;    (* t[-1] -> Bool false *)
-evaluate (Access(-3, tupexample));;    (* t[-3] -> Bool true *)
-evaluate (Access(-5, tupexample));;    (* t[-5] -> eccezione *)
-toList (evaluate (Slice(1, 2, tupexample)));;   (* t[1:2] -> (Bool true, (Int 45, Int 7)) *)
-toList (evaluate (Slice(-1, -3, tupexample)));; (* t[-1:-3] -> (Bool false, (Int 45, Int 7), Bool true) *)
-toList (evaluate (Slice(-1, 1, tupexample)));;  (* t[-1:1] -> eccezione *)
-toList (evaluate ciclo);;              (* [24] *)
