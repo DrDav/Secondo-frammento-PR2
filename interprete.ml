@@ -190,7 +190,7 @@ let get_tuple eval = match eval with (* Restituisce la tupla di tipo tuple, part
 let toList tupla = (* trasforma una tupla in lista, per una leggerla meglio *)
 	let rec toL t = match t with
 		  Void            -> []
-		| Add(elem, tail) -> match elem with 
+		| Add(elem, tail) -> (*match elem with 
 			  Tuple(tupla_interna) -> (toL tupla_interna) @ toL tail
-			| _                    -> elem :: toL tail
+			| _                    -> *)elem :: toL tail
 	in toL (get_tuple tupla);;
