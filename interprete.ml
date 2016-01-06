@@ -70,13 +70,6 @@ let parse_fval x = match x with (* Inverso di fval_to_exval, consente di "spacch
 	  Fval(y) -> y (* exval -> fval *)
 	| _       -> failwith "Not a fval type";;
 
-(* Restituisce una stringa che indica il tipo di un eval *)	
-let get_type elem = match elem with
-	  Int(_)   -> "int"
-	| Bool(_)  -> "bool" 
-	| Tuple(_) -> "tupla"
-	| _        -> failwith "Non-primitive type";;
-
 (* Operazioni unarie/binarie su interi/booleani: restituiscono tutte un eval *)
 let op (operation, x, y) = match (operation, parse_eval x, parse_eval y) with
 (* i parametri vengono parsati in eval perché dalla sem() arrivano già racchiusi in una exval *) 
@@ -99,7 +92,7 @@ let rec t_length t = match t with
 			  Void         -> 0
 			| Add(_, tail) -> 1 + t_length tail;;
 
-(* Accesso diretto all'elemento in posizione position della tupla tup *) 	
+(* Accesso diretto all'elemento in posizione 'position' della tupla 'tup' *) 	
 let direct_access position tup =
 	let rec direct_access_rec (position, tup, n) = (* Funzione ausiliaria ricorsiva *)
 		match tup with
@@ -113,7 +106,7 @@ let direct_access position tup =
 let rec slice start stop tup = 
 	if (start < 0 && stop <= (start+1)) then (* Indici entrambi positivi... *)
 		if (start >= stop) then Add((direct_access start tup), slice (start-1) stop tup) else Void (* chiusura ricorsione *)
-	else if (start >= 0 && stop >= (start-1)) then (* ... o entrambi negativi (lavoro sporco lasciato alla direct_access() *)
+	else if (start >= 0 && stop >= (start-1)) then (* ... o entrambi negativi (lavoro sporco lasciato alla direct_access() ) *)
 		if (start <= stop) then Add((direct_access start tup), slice (start+1) stop tup) else Void (* chiusura ricorsione *)
 	else (* Nessun'altra combinazione consentita *)
 		raise OutOfBounds;;
@@ -131,13 +124,14 @@ let rec sem (espr, amb) = match espr with
 	| Eint(x)                    -> eval_to_exval( Int x )
 	| Ebool(x)                   -> eval_to_exval( Bool x )
 	| Etuple(x)                  -> eval_to_exval( Tuple x )
-	| Fun(par_form, body)        -> fval_to_exval( Funval(Fun(par_form, body), amb) ) (* chiusura *)
+	| Fun(par_form, body)        -> fval_to_exval( Funval(Fun(par_form, body), amb) ) (* chiusura, per permettere lo scoping statico *)
+	                                (* Se non avessimo usato Funval, e quindi non avremmo salvato l'ambiente, avremmo avuto un regime di scoping dinamico *)
 	(* Operazioni Primitive *)
 	| Plus(add1, add2)           -> eval_to_exval( op( "plus", sem (add1, amb), sem(add2, amb) ) )
 	| Diff(min1, min2)           -> eval_to_exval( op( "diff", sem (min1, amb), sem(min2, amb) ) )
 	| Mul(fat1, fat2)            -> eval_to_exval( op( "mul", sem (fat1, amb), sem(fat2, amb) ) )
 	| Div(div1, div2)            -> eval_to_exval( op( "div", sem (div1, amb), sem(div2, amb) ) )
-	| Minus(num)                 -> eval_to_exval( op( "minus", sem(num, amb), eval_to_exval Unbound ) ) (* Uso speciale della costante Unbound per il terzo parametro *)
+	| Minus(num)                 -> eval_to_exval( op( "minus", sem(num, amb), eval_to_exval Unbound ) ) (* Uso speciale di Unbound per il terzo parametro *)
 	| IsZero(num)                -> eval_to_exval( op( "cmp0", sem(num, amb), eval_to_exval Unbound ) )
 	| And(esp1, esp2)            -> eval_to_exval( op( "and", sem(esp1, amb), sem(esp2, amb) ) )
 	| Or(esp1, esp2)             -> eval_to_exval( op( "or", sem(esp1, amb), sem(esp2, amb) ) )
@@ -147,25 +141,31 @@ let rec sem (espr, amb) = match espr with
 	| GTE(num1, num2)            -> eval_to_exval( op( "gte", sem(num1, amb), sem(num2, amb) ) )
 	(* Operazioni Complesse *)
 	| ITE(guardia, ramoT, ramoE) -> ( match parse_eval( sem(guardia, amb) ) with
-		  Bool(g) -> if (g = true) then sem(ramoT, amb) else sem(ramoE, amb)
+		  Bool(g) -> if (g = true) then sem(ramoT, amb) else sem(ramoE, amb) 
 		| _       -> failwith "Non-boolean guard" )
 	| Let(var, value, body)      -> sem(body, bind(var, sem(value, amb), amb))
+	(* Applicazione di funzione, regime di scoping statico *)
 	| Appl(fun_name, par_att)    -> ( match parse_fval( sem(fun_name, amb) ) with
-		  Funval(Fun(par_form, body), static_env) -> sem(body, bind(par_form, sem(par_att, amb), static_env))
-		| _                                       -> failwith "Not a function" )
+		  Funval(Fun(par_form, body), static_env) -> sem(body, bind(par_form, sem(par_att, amb), static_env)) (* valuto nell'ambiente presente alla dichiarazione *)
+		                                             (* Se avessi scritto amb al posto di static_env avrei ottenuto lo scoping dinamico *)
+		| _                                       -> failwith "Not a function"
+		)
 	| IsEmpty(t)                 -> ( match t with 
 		  Void -> eval_to_exval( Bool(true) )
 		| _    -> eval_to_exval( Bool(false) ) 
 		)
-	| Slice(start, stop, tupexp) -> ( match parse_eval( sem(tupexp, amb) ) with
+	(* Operazione di slicing: restituisce una nuova tupla ottenuta come "porzione" di un'altra tupla *)
+	| Slice(start, stop, tupexp) -> ( match parse_eval( sem(tupexp, amb) ) with (* Riceve un'espressione, in accordo alla grammatica *)
 		  Tuple(tupla) -> eval_to_exval( Tuple(slice start stop tupla) ) 
 		| _            -> failwith "Can't slice a non-tuple value."  
 		)
-	| Access(pos, tupexp)        -> ( match parse_eval( sem(tupexp, amb) ) with
+	| Access(pos, tupexp)        -> ( match parse_eval( sem(tupexp, amb) ) with (* Riceve un'espressione, in accordo alla grammatica *)
 		  Tuple(tupla) -> eval_to_exval ( direct_access pos tupla )
 		| _            -> failwith "Can't access to a position on a non-tuple value" 
 		)
+	(* Cerca value all'interno di tupla *)
 	| In(value, tupla)           -> eval_to_exval( search( sem(value, amb), tupla ) )
+	(* Ciclo for: scorre tutti gli elementi di una tupla *)
 	| For(var, tupla, body)      -> let rec loop tup = match tup with
 		  Add(elem, tail) -> (try
 					let semantica = sem(body, bind(var, (eval_to_exval elem), amb))
@@ -174,23 +174,21 @@ let rec sem (espr, amb) = match espr with
 						| _       -> Add( parse_eval (semantica), (* Se è del tipo giusto applico l'operazione *)
 								  loop tail))
 				   with
-					Failure("Unknown Primitive / Type Error") ->  loop tail )(* Se non è del tipo inziale vado avanti *)
+					Failure("Unknown Primitive / Type Error") ->  loop tail ) (* Se non è del tipo giusto vado avanti *)
 		| _		  -> Void
 					in eval_to_exval(Tuple(loop tupla))
 	| _                          -> failwith "Non legal expression"
 	;;
 	
 (* Funzioni utili per valutare espressioni senza appesantire la notazione *) 
-let ev environment = fun expression -> parse_eval( sem( expression, environment ) );;
+let ev environment = fun expression -> parse_eval( sem( expression, environment ) );; (* Valuta expression nell'ambiente environment *)
 let evaluate = ev env;; (* valuta nell'ambiente di default *)
 let get_tuple eval = match eval with (* Restituisce la tupla di tipo tuple, partendo dal tipo eval *)
 	  Tuple(t) -> t
 	| _        -> Void;;
 	
-let toList tupla = (* trasforma una tupla in lista, per una leggerla meglio *)
+let toList tupla = (* trasforma una tupla in lista, per leggerla meglio *)
 	let rec toL t = match t with
 		  Void            -> []
-		| Add(elem, tail) -> (*match elem with 
-			  Tuple(tupla_interna) -> (toL tupla_interna) @ toL tail
-			| _                    -> *)elem :: toL tail
+		| Add(elem, tail) -> elem :: toL tail
 	in toL (get_tuple tupla);;
