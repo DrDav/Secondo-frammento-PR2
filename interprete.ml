@@ -5,7 +5,6 @@ exception InvalidLoop;; (* Dichiarazione di funzione all'interno del for *)
 
 (* Tipi per la sintassi astratta *)
 type ide = string;;
-(*type 'a tuple = Void | Add of ('a * 'a tuple);;*)
 
 (* Tipi Esprimibili *)
 type eval = 
