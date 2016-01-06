@@ -5,17 +5,17 @@ let ciclo = For("x", tup1, Plus(Var "x", Eint(1)));;
 (* Casi di test sulla tupla tup1 *)
 evaluate (Access(0, Etuple(tup1)));;              (* t[0] -> Int 23 *)
 toList (evaluate (Access(2, Etuple(tup1))));;     (* t[2] -> [Int 45; Int 7] *)
-evaluate (Access(4, Etuple(tup1)));;              (* t[4] -> eccezione *)
-evaluate (Access(-1, Etuple(tup1)));;             (* t[-1] -> Bool false *)
-evaluate (Access(-3, Etuple(tup1)));;             (* t[-3] -> Bool true *)
-evaluate (Access(-5, Etuple(tup1)));;             (* t[-5] -> eccezione *)
+evaluate (Access(5, Etuple(tup1)));;              (* t[5] -> eccezione *)
+evaluate (Access(-1, Etuple(tup1)));;             (* t[-1] -> Int 12 *)
+evaluate (Access(-3, Etuple(tup1)));;             (* t[-3] -> (Int 45, Int 7) *)
+evaluate (Access(-5, Etuple(tup1)));;             (* t[-5] -> Int 23 *)
 toList (evaluate (Slice(1, 2, Etuple(tup1))));;   (* t[1:2] -> (Bool true, (Int 45, Int 7)) *)
-toList (evaluate (Slice(-1, -3, Etuple(tup1))));; (* t[-1:-3] -> (Bool false, (Int 45, Int 7), Bool true) *)
+toList (evaluate (Slice(-1, -3, Etuple(tup1))));; (* t[-1:-3] -> (Int 12, Bool false, (Int 45, Int 7)) *)
 toList (evaluate (Slice(-1, 1, Etuple(tup1))));;  (* t[-1:1] -> eccezione *)
 toList (evaluate ciclo);;                         (* [24, 13] *)
 evaluate (In(Eint 45, tup1));;                    (* False, perché 45 è in una sottotupla *)
 evaluate (In(Eint 12, tup1));;                    (* True, 12 è l'ultimo valore della tupla *)
-evaluate (In(Etuple(Add(Int 45, Add(Int 7, Void))), tup1);; (* True, è la sottotupla *)
+evaluate (In(Etuple(Add(Int 45, Add(Int 7, Void))), tup1));; (* True, è la sottotupla *)
 
 (* (false, true, false, true) *)
 let tuponlybool = Add(Bool false, Add(Bool true, Add(Bool false, Add(Bool true, Void ) ) ) );;
@@ -43,7 +43,7 @@ toList (evaluate (For("x", tuponlynum, Appl(abs, Var "x"))));; (* [1, 33, 8, 92,
 toList (evaluate (For("x", tuponlynum, Minus(Var "x"))));; (* [1, -33, 8, 92, 3, -15] *)
 
 (* Esegue lo XOR logico tra il primo booleano della tupla tuponlybool e gli altri valori *)
-let xor = For("z", tuponlybool, Let("y", Access(0, Etuple(tuponlybool)), Appl(Fun("x", And(Or(Var "x", Var "y"), Not(And(Var "x", Var "y")))), Var "z")));
+let xor = For("z", tuponlybool, Let("y", Access(0, Etuple(tuponlybool)), Appl(Fun("x", And(Or(Var "x", Var "y"), Not(And(Var "x", Var "y")))), Var "z")));;
 toList (evaluate (xor));; (* [false, true, false, true] *)
 
 (* Esempio di scoping statico *)
@@ -62,5 +62,6 @@ evaluate (IsEmpty(tupladituple));; (* false *)
 evaluate (IsEmpty(get_tuple(evaluate (Access(1, Etuple(tupladituple))))));; (* True, il primo elemento è la tupla vuota *)
 evaluate (IsEmpty(get_tuple(evaluate (Access(-1, Etuple(tupladituple))))));; (* false, l'ultimo elemento è la tupla (3, false) *)
 
-let last_tupla = Add(Int 0, Add(Int 2, Add(Bool true, Add(Int 0, Add(Bool false, Add(Int 0, Add(Int 12, Void)))))));
-For("elem", last_tupla, IsZero(Var "elem"));; (* [true, false, true, true, false] - i valori non numerici vengono ignorati *)
+let last_tupla = Add(Int 0, Add(Int 2, Add(Bool true, Add(Int 0, Add(Bool false, Add(Int 0, Add(Int 25, Void)))))));;
+toList (evaluate (For("elem", last_tupla, IsZero(Var "elem"))));; (* [true, false, true, true, false] - i valori non numerici vengono ignorati *)
+toList (evaluate (For("elem", last_tupla, Fun("n", IsZero(Var "n")))));; (* Eccezione: InvalidLoop *)
